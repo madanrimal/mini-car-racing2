@@ -1,0 +1,59 @@
+/**
+ * Helper to fetch unique high-performance racing car colors per level.
+ * Level 1 is always RED, and no level uses a white car color as requested.
+ */
+export const getCarColorForLevel = (level: number, baseColor: string): string => {
+  const lvl = level || 1;
+  switch (lvl) {
+    case 1:
+      return '#ef4444'; // Radiant Red
+    case 2:
+      return '#f97316'; // Speed Orange
+    case 3:
+      return '#06b6d4'; // Cyber Cyan
+    case 4:
+      return '#0ea5e9'; // Sky Blue
+    case 5:
+      return '#a855f7'; // Psychedelic Purple
+    case 6:
+      return '#10b981'; // Emerald Green
+    case 7:
+      return '#ec4899'; // Hot Pink
+    case 8:
+      return '#14b8a6'; // Racing Teal
+    case 9:
+      return '#4f46e5'; // Hyper Indigo
+    case 10:
+      return '#dc2626'; // Volcanic Crimson
+    default:
+      return baseColor;
+  }
+};
+
+export const getCarAccentForLevel = (level: number, baseAccent: string): string => {
+  const lvl = level || 1;
+  switch (lvl) {
+    case 1:
+      return '#06b6d4'; // Cyan Spoiler
+    case 2:
+      return '#10b981'; // Emerald Trim
+    case 3:
+      return '#ec4899'; // Neon Pink Trim
+    case 4:
+      return '#ef4444'; // Red Accent
+    case 5:
+      return '#22d3ee'; // Cyan Accent
+    case 6:
+      return '#f97316'; // Orange Trim
+    case 7:
+      return '#a855f7'; // Purple Contrast
+    case 8:
+      return '#ff7849'; // Coral Contrast
+    case 9:
+      return '#00f2fe'; // Electric Cyan Accent
+    case 10:
+      return '#ff007f'; // Rose Accent
+    default:
+      return baseAccent;
+  }
+};

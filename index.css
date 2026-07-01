@@ -1,0 +1,289 @@
+import React, { useEffect, useState } from 'react';
+import { GameStats, CarConfig } from '../types';
+import { Timer, Trophy, Coins, Zap, Volume2, VolumeX, RefreshCw, Car, Maximize, Minimize } from 'lucide-react';
+import { audio } from '../utils/audio';
+
+interface GameHUDProps {
+  stats: GameStats;
+  car: CarConfig;
+  onRestart: () => void;
+  onOpenShop: () => void;
+  onOpenConfig: () => void;
+  nitroCharged: number; // 0 to 100
+  speed: number; // current speed
+  maxSpeed: number; // max speed
+  routeProgress?: number;
+  distanceRemaining?: number;
+  totalCoins?: number;
+}
+
+export const GameHUD: React.FC<GameHUDProps> = ({
+  stats,
+  car,
+  onRestart,
+  onOpenShop,
+  onOpenConfig,
+  nitroCharged,
+  speed,
+  maxSpeed,
+  routeProgress = 0,
+  distanceRemaining = 0,
+  totalCoins,
+}) => {
+  const [isMuted, setIsMuted] = useState(audio.getMuted());
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+  const [checkpointFlash, setCheckpointFlash] = useState(false);
+  const [lapFlash, setLapFlash] = useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const handleToggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.warn("Could not request fullscreen:", err);
+      });
+    } else {
+      document.exitFullscreen().catch((err) => {
+        console.warn("Could not exit fullscreen:", err);
+      });
+    }
+  };
+
+  // Trigger sound toggle
+  const handleToggleMute = () => {
+    const muted = audio.toggleMute();
+    setIsMuted(muted);
+  };
+
+  // Convert speed in px/s to km/hr for displays
+  const displaySpeed = Math.min(300, Math.floor(speed / 3.5));
+  const displayMaxSpeed = Math.min(300, Math.floor(maxSpeed / 3.5));
+
+  // Speedometer needle angle (-120deg to +120deg)
+  const speedRatio = Math.min(1, speed / Math.max(1, maxSpeed));
+  const needleAngle = -120 + speedRatio * 240;
+
+  // Flash warning/success banners when metrics change
+  useEffect(() => {
+    if (stats.currentCheckpoint > 0) {
+      setCheckpointFlash(true);
+      const timer = setTimeout(() => setCheckpointFlash(false), 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [stats.currentCheckpoint]);
+
+  useEffect(() => {
+    if (stats.lapsCompleted > 0) {
+      setLapFlash(true);
+      const timer = setTimeout(() => setLapFlash(false), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [stats.lapsCompleted]);
+
+  const formattedTime = (time: number) => {
+    if (time <= 0) return '0:00.0';
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    const ms = Math.floor((time % 1) * 10);
+    return `${mins}:${secs.toString().padStart(2, '0')}.${ms}`;
+  };
+
+  const isTimeLow = stats.timeRemaining < 6;
+
+  return (
+    <div id="game-hud-overlay" className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 z-30 font-sans">
+      {/* Top HUD Row - Utility Controls Only */}
+      <div className="w-full flex justify-end items-start pointer-events-auto">
+        <div className="flex gap-2 items-center">
+          {/* Audio Mute Button */}
+          <button
+            onClick={handleToggleMute}
+            className="p-2.5 rounded-2xl bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 backdrop-blur-md text-zinc-300 hover:text-white transition-all cursor-pointer shadow-lg flex items-center justify-center active:scale-95"
+            title={isMuted ? "Unmute Sound" : "Mute Sound"}
+          >
+            {isMuted ? <VolumeX className="w-5 h-5 text-red-400" /> : <Volume2 className="w-5 h-5 text-cyan-400" />}
+          </button>
+
+          {/* Fullscreen Button */}
+          <button
+            onClick={handleToggleFullscreen}
+            className="p-2.5 rounded-2xl bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 backdrop-blur-md text-zinc-300 hover:text-white transition-all cursor-pointer shadow-lg flex items-center justify-center active:scale-95"
+            title={isFullscreen ? "Exit Fullscreen" : "Go Fullscreen"}
+          >
+            {isFullscreen ? <Minimize className="w-5 h-5 text-cyan-400" /> : <Maximize className="w-5 h-5 text-cyan-400" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Center Messages / Flashing Notifications - Smaller & Positioned Higher to not block view */}
+      <div className="absolute top-[22%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center flex flex-col items-center justify-center gap-1.5 pointer-events-none select-none">
+        {checkpointFlash && (
+          <div className="bg-gradient-to-r from-emerald-500/95 to-teal-500/95 text-zinc-950 font-black tracking-wider text-xs sm:text-sm px-4 py-1.5 rounded-xl border border-emerald-300 shadow-xl shadow-emerald-950/20 animate-bounce uppercase">
+            🚀 CHECKPOINT! +10 SEC
+          </div>
+        )}
+
+        {lapFlash && (
+          <div className="bg-gradient-to-r from-indigo-500/95 to-cyan-500/95 text-white font-black tracking-wider text-xs sm:text-sm px-4 py-1.5 rounded-xl border border-cyan-300 shadow-xl shadow-indigo-950/20 animate-pulse uppercase">
+            🏁 LAP {stats.lapsCompleted} COMPLETED!
+          </div>
+        )}
+
+        {stats.timeRemaining <= 10 && stats.timeRemaining > 0 && (
+          <div className="bg-red-950/85 backdrop-blur-md text-rose-400 font-extrabold text-[11px] sm:text-xs tracking-wider px-3.5 py-1.5 rounded-xl border border-red-500/40 animate-pulse flex items-center gap-1.5 shadow-xl shadow-red-950/30">
+            <span className="text-rose-500 animate-bounce text-xs sm:text-sm">❤️</span>
+            <span>{Math.ceil(stats.timeRemaining)} SEC TO REACH CHECKPOINT!</span>
+          </div>
+        )}
+      </div>
+
+      {/* Unified Left Dashboard Sidebar: Route & Speed Only (Taller Route View) */}
+      <div 
+        id="floating-route-speed" 
+        className="absolute left-3 top-[50%] -translate-y-1/2 w-16 sm:w-20 bg-zinc-950/90 border border-zinc-800/80 rounded-2xl py-3 px-1.5 flex flex-col items-center gap-3 sm:gap-4 shadow-2xl backdrop-blur-md pointer-events-auto select-none transition-all duration-300 max-h-[90vh] overflow-y-auto"
+      >
+        {/* Route View / Progress vertical track - Longer/Increased length */}
+        <div className="flex flex-col items-center w-full">
+          <span className="text-[6px] sm:text-[7px] font-black uppercase tracking-widest text-zinc-500 mb-1">Route</span>
+          
+          <div className="relative w-3 h-52 sm:h-72 md:h-80 flex justify-center items-center">
+            {/* The Track Line (Thinner) */}
+            <div className="absolute top-0 bottom-0 w-0.5 sm:w-1 bg-zinc-900 rounded-full border border-zinc-800/50 overflow-hidden">
+              {/* Highlight completed track path */}
+              <div 
+                className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-cyan-500 to-teal-400 transition-all duration-200"
+                style={{ height: `${routeProgress * 100}%` }}
+              />
+            </div>
+
+            {/* Checkered flag at FINISH (top) */}
+            <div className="absolute -top-3.5 text-[8px] sm:text-[10px]">🏁</div>
+
+            {/* Start indicator at bottom */}
+            <div className="absolute -bottom-2 text-[4px] sm:text-[5px] font-black font-mono text-zinc-600">START</div>
+
+            {/* Moving Player Car Indicator (Car-like image) */}
+            <div 
+              className="absolute z-10 transition-all duration-150 flex items-center justify-center"
+              style={{ bottom: `calc(${routeProgress * 100}% - 7px)` }}
+            >
+              <div 
+                className="relative flex items-center justify-center p-0.5 rounded-sm bg-cyan-400 border border-zinc-950 shadow-[0_0_6px_rgba(34,211,238,0.85)]"
+                style={{ backgroundColor: car.color || '#22d3ee' }}
+              >
+                <Car className="w-2 h-2 text-zinc-950 fill-current" />
+              </div>
+            </div>
+          </div>
+
+          {/* Progress Percentage */}
+          <span className="text-[7px] sm:text-[8px] font-bold font-mono text-zinc-400 mt-2">
+            {Math.floor(routeProgress * 100)}%
+          </span>
+        </div>
+
+        {/* Separator */}
+        <div className="w-full h-px bg-zinc-800/40" />
+
+        {/* Speed Meter at the bottom */}
+        <div className="flex flex-col items-center justify-center w-full">
+          <span className="text-[5px] sm:text-[6px] font-black uppercase tracking-widest text-zinc-500">Speed</span>
+          <span className="text-xs sm:text-sm font-black font-mono text-cyan-400 tracking-tighter leading-none mt-0.5">
+            {displaySpeed}
+          </span>
+          <span className="text-[4px] sm:text-[5px] font-bold text-zinc-500 font-mono tracking-widest uppercase mt-0.5">KM/H</span>
+          
+          {/* Mini Speed indicator line */}
+          <div className="w-8 sm:w-10 h-0.5 bg-zinc-900 rounded-full relative overflow-hidden mt-1">
+            <div 
+              className="absolute left-0 top-0 h-full bg-gradient-to-r from-cyan-500 to-teal-400 transition-all duration-75"
+              style={{ width: `${Math.min(100, (speed / Math.max(1, maxSpeed)) * 100)}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Unified Right Dashboard Sidebar: Lives, Time, Lap, Gold, Total (Symmetric sizes and layout) */}
+      <div 
+        id="floating-stats-panel" 
+        className="absolute right-3 top-[50%] -translate-y-1/2 w-16 sm:w-20 bg-zinc-950/90 border border-zinc-800/80 rounded-2xl py-3 px-1.5 flex flex-col items-center gap-2.5 sm:gap-3.5 shadow-2xl backdrop-blur-md pointer-events-auto select-none transition-all duration-300 max-h-[90vh] overflow-y-auto"
+      >
+        {/* 1. Lives Indicator */}
+        <div className="flex flex-col items-center w-full">
+          <span className="text-[6px] sm:text-[7px] font-black uppercase tracking-widest text-zinc-500">Lives</span>
+          <div className="flex gap-0.5 justify-center mt-0.5">
+            {Array.from({ length: stats.maxLives ?? 2 }).map((_, i) => {
+              const currentLives = stats.lives ?? 0;
+              const active = i < currentLives;
+              return (
+                <span
+                  key={i}
+                  className={`text-[9px] sm:text-[11px] transition-all duration-300 ${
+                    active ? 'text-rose-500 scale-100' : 'text-zinc-600 opacity-20 scale-75'
+                  }`}
+                >
+                  ❤️
+                </span>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Separator */}
+        <div className="w-full h-px bg-zinc-800/40" />
+
+        {/* 2. Time Remaining */}
+        <div className="flex flex-col items-center w-full">
+          <span className="text-[6px] sm:text-[7px] font-black uppercase tracking-widest text-zinc-500">Time</span>
+          <span className={`text-[9px] sm:text-[11px] font-black font-mono tracking-tighter mt-0.5 leading-none ${
+            isTimeLow ? 'text-red-400 animate-pulse' : 'text-zinc-100'
+          }`}>
+            {formattedTime(stats.timeRemaining)}
+          </span>
+        </div>
+
+        {/* Separator */}
+        <div className="w-full h-px bg-zinc-800/40" />
+
+        {/* 3. Lap Tracker */}
+        <div className="flex flex-col items-center w-full">
+          <span className="text-[6px] sm:text-[7px] font-black uppercase tracking-widest text-zinc-500">Lap</span>
+          <span className="text-[9px] sm:text-[11px] font-black font-mono tracking-tighter text-zinc-100 mt-0.5 leading-none">
+            {Math.min(10, stats.lapsCompleted + 1)}<span className="text-[7px] text-zinc-500">/10</span>
+          </span>
+        </div>
+
+        {/* Separator */}
+        <div className="w-full h-px bg-zinc-800/40" />
+
+        {/* 4. Session Gold */}
+        <div className="flex flex-col items-center w-full">
+          <span className="text-[6px] sm:text-[7px] font-black uppercase tracking-widest text-zinc-500">Gold</span>
+          <span className="text-[9px] sm:text-[11px] font-black font-mono tracking-tighter text-cyan-400 mt-0.5 leading-none flex items-center justify-center gap-0.5">
+            🪙{stats.coinsCollected}
+          </span>
+        </div>
+
+        {/* Separator */}
+        <div className="w-full h-px bg-zinc-800/40" />
+
+        {/* 5. Total Gold */}
+        {totalCoins !== undefined && (
+          <div className="flex flex-col items-center w-full">
+            <span className="text-[6px] sm:text-[7px] font-black uppercase tracking-widest text-zinc-500">Total</span>
+            <span className="text-[9px] sm:text-[11px] font-black font-mono tracking-tighter text-indigo-400 mt-0.5 leading-none flex items-center justify-center gap-0.5">
+              💰{totalCoins}
+            </span>
+          </div>
+        )}
+      </div>
+
+    </div>
+  );
+};

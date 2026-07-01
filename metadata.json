@@ -1,0 +1,81 @@
+import { Vector2D } from '../types';
+
+export function vecAdd(v1: Vector2D, v2: Vector2D): Vector2D {
+  return { x: v1.x + v2.x, y: v1.y + v2.y };
+}
+
+export function vecSub(v1: Vector2D, v2: Vector2D): Vector2D {
+  return { x: v1.x - v2.x, y: v1.y - v2.y };
+}
+
+export function vecScale(v: Vector2D, scale: number): Vector2D {
+  return { x: v.x * scale, y: v.y * scale };
+}
+
+export function vecLen(v: Vector2D): number {
+  return Math.sqrt(v.x * v.x + v.y * v.y);
+}
+
+export function vecLenSq(v: Vector2D): number {
+  return v.x * v.x + v.y * v.y;
+}
+
+export function vecNormalize(v: Vector2D): Vector2D {
+  const len = vecLen(v);
+  return len === 0 ? { x: 0, y: 0 } : { x: v.x / len, y: v.y / len };
+}
+
+export function vecDot(v1: Vector2D, v2: Vector2D): number {
+  return v1.x * v2.x + v1.y * v2.y;
+}
+
+export function vecDistance(v1: Vector2D, v2: Vector2D): number {
+  return Math.sqrt((v1.x - v2.x) ** 2 + (v1.y - v2.y) ** 2);
+}
+
+export function vecRotate(v: Vector2D, angle: number): Vector2D {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  return {
+    x: v.x * cos - v.y * sin,
+    y: v.x * sin + v.y * cos,
+  };
+}
+
+export function vecLerp(v1: Vector2D, v2: Vector2D, t: number): Vector2D {
+  return {
+    x: v1.x + (v2.x - v1.x) * t,
+    y: v1.y + (v2.y - v1.y) * t,
+  };
+}
+
+// Catmull-Rom Spline Interpolation for smooth track curves
+export function catmullRom(
+  p0: Vector2D,
+  p1: Vector2D,
+  p2: Vector2D,
+  p3: Vector2D,
+  t: number
+): Vector2D {
+  const t2 = t * t;
+  const t3 = t2 * t;
+
+  const f1 = -0.5 * t3 + t2 - 0.5 * t;
+  const f2 = 1.5 * t3 - 2.5 * t2 + 1.0;
+  const f3 = -1.5 * t3 + 2.0 * t2 + 0.5 * t;
+  const f4 = 0.5 * t3 - 0.5 * t2;
+
+  return {
+    x: p0.x * f1 + p1.x * f2 + p2.x * f3 + p3.x * f4,
+    y: p0.y * f1 + p1.y * f2 + p2.y * f3 + p3.y * f4,
+  };
+}
+
+// Checks if a point is inside a polygon or close to a line segment
+export function distanceToSegment(p: Vector2D, a: Vector2D, b: Vector2D): number {
+  const l2 = vecLenSq(vecSub(b, a));
+  if (l2 === 0) return vecDistance(p, a);
+  let t = vecDot(vecSub(p, a), vecSub(b, a)) / l2;
+  t = Math.max(0, Math.min(1, t));
+  return vecDistance(p, vecAdd(a, vecScale(vecSub(b, a), t)));
+}
